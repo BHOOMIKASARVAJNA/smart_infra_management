@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Smart Traffic, Highway & Bridge Management System — A1 Batch</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --white:#ffffff;--bg:#f0f4f8;--card:#ffffff;--border:#e2e8f0;
+  --text:#1a202c;--muted:#718096;--blue:#3b82f6;--blue-dk:#1d4ed8;
+  --blue-lt:#eff6ff;--green:#16a34a;--green-lt:#f0fdf4;--yellow:#d97706;
+  --yellow-lt:#fffbeb;--red:#dc2626;--red-lt:#fef2f2;--navy:#1e3a5f;
+  --shadow:0 1px 3px rgba(0,0,0,0.08);--shadow-md:0 4px 6px rgba(0,0,0,0.07);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+nav{background:var(--navy);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.15);}
+.nav-left{display:flex;align-items:center;gap:12px;}
+.nav-logo{background:var(--blue);width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.nav-title h1{font-size:14px;font-weight:700;color:#fff;letter-spacing:.3px;}
+.nav-title p{font-size:10px;color:#94a3b8;margin-top:1px;}
+.nav-right{display:flex;align-items:center;gap:16px;}
+.nav-badge{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#e2e8f0;padding:4px 12px;border-radius:20px;font-size:11px;}
+.live-indicator{display:flex;align-items:center;gap:6px;font-size:11px;color:#86efac;}
+.live-dot{width:8px;height:8px;background:#22c55e;border-radius:50%;animation:blink 1.4s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.main{display:grid;grid-template-columns:320px 1fr 340px;flex:1;overflow:hidden;}
+.sidebar{background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.sidebar-section{border-bottom:1px solid var(--border);padding:14px 16px 12px;}
+.section-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.kpi-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.kpi-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;position:relative;overflow:hidden;}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;border-radius:10px 0 0 10px;}
+.kpi-card.blue::before{background:var(--blue);}
+.kpi-card.green::before{background:var(--green);}
+.kpi-card.yellow::before{background:var(--yellow);}
+.kpi-card.red::before{background:var(--red);}
+.kpi-label{font-size:10px;color:var(--muted);font-weight:500;}
+.kpi-value{font-size:22px;font-weight:700;margin-top:3px;line-height:1;}
+.kpi-value.blue{color:var(--blue-dk);}
+.kpi-value.green{color:var(--green);}
+.kpi-value.yellow{color:var(--yellow);}
+.kpi-value.red{color:var(--red);}
+.alert-feed{flex:1;overflow-y:auto;padding:10px 12px;}
+.alert-feed::-webkit-scrollbar{width:4px;}
+.alert-feed::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.alert-card{border-radius:8px;padding:9px 11px;margin-bottom:6px;border:1px solid;font-size:11.5px;}
+.alert-card.critical{background:var(--red-lt);border-color:#fca5a5;}
+.alert-card.warning{background:var(--yellow-lt);border-color:#fcd34d;}
+.alert-card.info{background:var(--blue-lt);border-color:#93c5fd;}
+.alert-time{font-size:10px;color:var(--muted);margin-bottom:2px;}
+.alert-level{display:inline-block;font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;margin-right:4px;text-transform:uppercase;}
+.alert-level.critical{background:#dc2626;color:#fff;}
+.alert-level.warning{background:#d97706;color:#fff;}
+.alert-level.info{background:#3b82f6;color:#fff;}
+.asset-list{overflow-y:auto;max-height:240px;padding:6px 12px 10px;}
+.asset-list::-webkit-scrollbar{width:4px;}
+.asset-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.asset-row{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:8px;cursor:pointer;font-size:12px;transition:background .15s;border:1px solid transparent;}
+.asset-row:hover{background:var(--bg);border-color:var(--border);}
+.status-pill{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.pill-normal{background:var(--green);}
+.pill-warning{background:var(--yellow);}
+.pill-critical{background:var(--red);animation:blink .8s infinite;}
+.pill-healthy{background:var(--green);}
+.asset-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+.asset-tag{font-size:10px;padding:2px 7px;border-radius:10px;background:var(--bg);border:1px solid var(--border);color:var(--muted);}
+#map{width:100%;height:100%;}
+.panel{background:var(--white);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.panel-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--bg);}
+.panel-header h2{font-size:13px;font-weight:700;color:var(--navy);}
+.close-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;}
+.close-btn:hover{background:var(--border);color:var(--text);}
+.panel-body{flex:1;overflow-y:auto;padding:14px 16px;}
+.panel-body::-webkit-scrollbar{width:4px;}
+.panel-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.detail-group{margin-bottom:14px;}
+.detail-group-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.detail-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f7fafc;}
+.detail-key{font-size:12px;color:var(--muted);}
+.detail-val{font-size:12px;font-weight:600;color:var(--text);}
+.detail-val.green{color:var(--green);}
+.detail-val.yellow{color:var(--yellow);}
+.detail-val.red{color:var(--red);}
+.detail-val.blue{color:var(--blue-dk);}
+.status-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-bottom:12px;}
+.badge-normal{background:var(--green-lt);color:var(--green);border:1px solid #bbf7d0;}
+.badge-warning{background:var(--yellow-lt);color:var(--yellow);border:1px solid #fde68a;}
+.badge-critical{background:var(--red-lt);color:var(--red);border:1px solid #fca5a5;}
+.badge-healthy{background:var(--green-lt);color:var(--green);border:1px solid #bbf7d0;}
+.progress-block{margin-bottom:10px;}
+.progress-top{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;}
+.progress-track{height:8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:4px;transition:.6s;}
+.actions-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:14px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.action-btn{padding:10px 8px;border-radius:8px;border:1px solid;font-size:11px;font-weight:600;cursor:pointer;transition:.15s;text-align:center;}
+.btn-blue{background:var(--blue);color:#fff;border-color:var(--blue-dk);}
+.btn-blue:hover{background:var(--blue-dk);}
+.btn-green{background:var(--green);color:#fff;border-color:#15803d;}
+.btn-green:hover{background:#15803d;}
+.btn-warn{background:var(--yellow);color:#fff;border-color:#b45309;}
+.btn-warn:hover{background:#b45309;}
+.btn-red{background:var(--red);color:#fff;border-color:#b91c1c;}
+.btn-red:hover{background:#b91c1c;}
+.placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:30px;color:var(--muted);}
+.placeholder-icon{font-size:40px;margin-bottom:12px;}
+.placeholder h3{font-size:14px;color:var(--text);margin-bottom:6px;}
+.placeholder p{font-size:12px;line-height:1.6;}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:10px;font-size:12px;box-shadow:var(--shadow-md);transform:translateY(60px);opacity:0;transition:.3s;z-index:9999;max-width:320px;}
+#toast.show{transform:translateY(0);opacity:1;}
+#demo-banner{background:#fef3c7;border-bottom:1px solid #fde68a;padding:6px 16px;font-size:11px;color:#92400e;text-align:center;display:none;flex-shrink:0;}
+.signal-icon{width:14px;height:14px;border-radius:3px;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,.2);}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-left">
+    <div class="nav-logo">🛣️</div>
+    <div class="nav-title">
+      <h1>Smart Traffic, Highway & Bridge Management System</h1>
+      <p>Bengaluru Road Network</p>
+    </div>
+  </div>
+  <div class="nav-right">
+    <!-- <span class="nav-badge">☁ AWS Mumbai</span> -->
+    <span class="nav-badge" id="clock">--:--:--</span>
+    <div class="live-indicator"><div class="live-dot"></div><span>LIVE</span></div>
+  </div>
+</nav>
+<div id="demo-banner">⚡ Running in Demo Mode — Start server.py and sensors.py for live data</div>
+<div class="main">
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="section-label">Network Summary</div>
+      <div class="kpi-row">
+        <div class="kpi-card blue"><div class="kpi-label">Avg Speed</div><div class="kpi-value blue" id="k-speed">—</div></div>
+        <div class="kpi-card yellow"><div class="kpi-label">Peak Congestion</div><div class="kpi-value yellow" id="k-cong">—</div></div>
+        <div class="kpi-card red"><div class="kpi-label">Bridge Warnings</div><div class="kpi-value red" id="k-bridge">—</div></div>
+        <div class="kpi-card green"><div class="kpi-label">Active Assets</div><div class="kpi-value green" id="k-assets">—</div></div>
+        <div class="kpi-card red"><div class="kpi-label">Open Incidents</div><div class="kpi-value red" id="k-inc">—</div></div>
+        <div class="kpi-card blue"><div class="kpi-label">Total Vehicles</div><div class="kpi-value blue" id="k-veh">—</div></div>
+      </div>
+    </div>
+    <div class="sidebar-section" style="padding-bottom:0;border-bottom:none;"><div class="section-label">Live Alert Feed</div></div>
+    <div class="alert-feed" id="alert-feed"><div style="text-align:center;color:var(--muted);font-size:12px;padding:20px 0;">Waiting for alerts...</div></div>
+    <div class="sidebar-section" style="padding-bottom:6px;"><div class="section-label">Asset Directory</div></div>
+    <div class="asset-list" id="asset-list"></div>
+  </div>
+  <div id="map"></div>
+  <div class="panel">
+    <div class="panel-header"><h2 id="panel-title">Asset Inspector</h2><button class="close-btn" onclick="closePanel()">✕</button></div>
+    <div class="panel-body" id="panel-body">
+      <div class="placeholder"><div class="placeholder-icon">🗺️</div><h3>Select an Asset</h3><p>Click on any road, bridge, or signal junction on the map to view live telemetry and take action.</p></div>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+<script>
+const API="http://localhost:5000";
+let demoMode=false,selected=null,appState={};
+const map=L.map("map",{center:[12.97,77.59],zoom:12});
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{
+  attribution:'© OpenStreetMap © CARTO',subdomains:"abcd",maxZoom:19
+}).addTo(map);
+const layers={highways:{},bridges:{},signals:{}};
+function speedColor(s){return s>=50?"#16a34a":s>=25?"#d97706":"#dc2626";}
+function healthColor(h){return h>=0.83?"#16a34a":h>=0.70?"#d97706":"#dc2626";}
+function drawHighways(list){
+  list.forEach(h=>{
+    if(layers.highways[h.id])map.removeLayer(layers.highways[h.id]);
+    const poly=L.polyline(h.path,{color:speedColor(h.speed),weight:h.status==="critical"?8:5,dashArray:h.status==="warning"?"10,6":null,opacity:.85})
+      .addTo(map).on("click",()=>openPanel(h,"highway"));
+    poly.bindTooltip(`<b>${h.name}</b><br>🚗 ${h.speed} km/h 🚦 ${h.congestion.toFixed(0)}% congested`,{sticky:true});
+    layers.highways[h.id]=poly;
+  });
+}
+function drawBridges(list){
+  list.forEach(b=>{
+    if(layers.bridges[b.id])map.removeLayer(layers.bridges[b.id]);
+    const c=healthColor(b.health);
+    const icon=L.divIcon({html:`<div style="width:18px;height:18px;border-radius:4px;background:${c};border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,.25);"></div>`,iconSize:[18,18],className:""});
+    const mk=L.marker([b.lat,b.lng],{icon}).addTo(map).on("click",()=>openPanel(b,"bridge"));
+    mk.bindTooltip(`<b>${b.name}</b><br>Health: ${(b.health*100).toFixed(0)}% Vibration: ${b.vibration} Hz`,{sticky:true});
+    layers.bridges[b.id]=mk;
+  });
+}
+function drawSignals(list){
+  list.forEach(s=>{
+    if(layers.signals[s.id])map.removeLayer(layers.signals[s.id]);
+    const c=s.status==="critical"?"#dc2626":s.status==="warning"?"#d97706":"#16a34a";
+    const icon=L.divIcon({html:`<div class="signal-icon" style="background:${c}"></div>`,iconSize:[14,14],className:""});
+    const mk=L.marker([s.lat,s.lng],{icon}).addTo(map).on("click",()=>openPanel(s,"signal"));
+    mk.bindTooltip(`<b>${s.name}</b><br>Queue: ${s.queue} vehicles`,{sticky:true});
+    layers.signals[s.id]=mk;
+  });
+}
+function openPanel(node,type){
+  selected={node,type};
+  document.getElementById("panel-title").textContent=node.name;
+  let html="";
+  if(type==="highway"){
+    const sc=node.speed>=50?"green":node.speed>=25?"yellow":"red";
+    const cc=node.congestion>85?"red":node.congestion>60?"yellow":"green";
+    html+=badge(node.status||"normal");
+    html+=`<div class="detail-group"><div class="detail-group-title">Traffic Metrics</div>
+      ${drow("Road Type",node.type||"Highway")}${drow("Zone",node.zone)}
+      ${drow("Speed",node.speed+" km/h",sc)}${drow("Congestion",node.congestion.toFixed(0)+"%",cc)}
+      ${drow("Vehicles",(node.vehicles||0).toLocaleString())}${drow("Avg Wait",node.wait_min+" min",cc)}
+      ${drow("Lanes",node.lanes)}</div>`;
+    html+=progressBar("Congestion Level",node.congestion,100,node.congestion>85?"#dc2626":node.congestion>60?"#d97706":"#16a34a");
+    html+=`<div class="actions-title">Operator Controls</div><div class="btn-grid">
+      <button class="action-btn btn-blue" onclick="act('deploy_patrol')">🚔 Deploy Patrol</button>
+      <button class="action-btn btn-green" onclick="act('retime_signals')">🚦 Retime Signals</button>
+      <button class="action-btn btn-warn" onclick="act('close_lane')">🚧 Close Lane</button>
+      <button class="action-btn btn-red" onclick="act('notify_maintenance')">🔧 Maintenance</button></div>`;
+  }else if(type==="bridge"){
+    const hc=node.health>=0.83?"green":node.health>=0.70?"yellow":"red";
+    const vc=node.vibration>9?"red":node.vibration>6?"yellow":"green";
+    const lp=(node.load/node.capacity)*100;
+    const lc=lp>90?"red":lp>75?"yellow":"green";
+    html+=badge(node.status||"healthy");
+    html+=`<div class="detail-group"><div class="detail-group-title">Structural Health Monitor</div>
+      ${drow("Zone",node.zone)}${drow("Material",node.material)}${drow("Age",node.age_years+" years")}
+      ${drow("Health Index",(node.health*100).toFixed(1)+"%",hc)}${drow("Vibration",node.vibration+" Hz",vc)}
+      ${drow("Current Load",node.load+" T",lc)}${drow("Capacity",node.capacity+" T")}
+      ${drow("Temperature",node.temperature+" °C")}${drow("Last Inspection",node.last_check)}</div>`;
+    html+=progressBar("Structural Health",node.health*100,100,node.health>=0.83?"#16a34a":node.health>=0.70?"#d97706":"#dc2626");
+    html+=progressBar("Load Utilisation",lp,100,lp>90?"#dc2626":lp>75?"#d97706":"#16a34a");
+    html+=`<div class="actions-title">Engineer Controls</div><div class="btn-grid">
+      <button class="action-btn btn-blue" onclick="act('deploy_patrol')">🦺 Send Inspection</button>
+      <button class="action-btn btn-warn" onclick="act('divert_load')">⚖️ Divert Traffic</button>
+      <button class="action-btn btn-red" onclick="act('notify_maintenance')">🔧 Alert Engineers</button></div>`;
+  }else if(type==="signal"){
+    const qc=node.queue>50?"red":node.queue>25?"yellow":"green";
+    html+=badge(node.status||"normal");
+    html+=`<div class="detail-group"><div class="detail-group-title">Signal Junction Data</div>
+      ${drow("Junction",node.name)}${drow("Queue Length",node.queue+" vehicles",qc)}
+      ${drow("Cycle Time",(node.cycle_time||90)+" seconds")}</div>`;
+    html+=progressBar("Queue Level",node.queue,80,node.queue>50?"#dc2626":node.queue>25?"#d97706":"#16a34a");
+    html+=`<div class="actions-title">Signal Controls</div><div class="btn-grid">
+      <button class="action-btn btn-blue" onclick="act('retime_signals')">⏱ Shorten Cycle</button>
+      <button class="action-btn btn-green" onclick="act('notify_maintenance')">📡 Alert Operator</button></div>`;
+  }
+  document.getElementById("panel-body").innerHTML=html;
+}
+function closePanel(){
+  selected=null;
+  document.getElementById("panel-title").textContent="Asset Inspector";
+  document.getElementById("panel-body").innerHTML=`<div class="placeholder"><div class="placeholder-icon">🗺️</div><h3>Select an Asset</h3><p>Click on any road, bridge, or signal junction on the map to view live telemetry and take action.</p></div>`;
+}
+function badge(s){
+  const cls=s==="critical"?"badge-critical":s==="warning"?"badge-warning":s==="healthy"?"badge-healthy":"badge-normal";
+  const dot=s==="critical"?"🔴":s==="warning"?"🟡":"🟢";
+  return `<span class="status-badge ${cls}">${dot} ${s.toUpperCase()}</span>`;
+}
+function drow(k,v,cls=""){return `<div class="detail-row"><span class="detail-key">${k}</span><span class="detail-val ${cls}">${v}</span></div>`;}
+function progressBar(label,val,max,color){
+  const pct=Math.min(100,(val/max)*100);
+  return `<div class="progress-block"><div class="progress-top"><span>${label}</span><span>${typeof val==="number"?val.toFixed(1):val}</span></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+}
+async function act(action){
+  if(!selected)return;
+  try{
+    const r=await fetch(`${API}/action/${selected.node.id}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,operator:"Control Room"})});
+    const d=await r.json();toast("✅ "+(d.result||"Action executed"));
+  }catch{toast("⚡ Demo mode — action noted locally");}
+}
+function updateKPIs(a){
+  set("k-speed",(a.avg_speed_kmh||0).toFixed(1)+" km/h");
+  set("k-cong",(a.peak_congestion||0).toFixed(0)+"%");
+  set("k-bridge",a.bridge_warnings||0);set("k-assets",a.total_assets||0);
+  set("k-inc",a.open_incidents||0);
+  const v=a.total_vehicles||0;set("k-veh",v>999?(v/1000).toFixed(1)+"K":v);
+}
+function updateAlerts(alerts){
+  const el=document.getElementById("alert-feed");
+  const sorted=[...alerts].sort((a,b)=>b.ts-a.ts).slice(0,18);
+  if(!sorted.length){el.innerHTML=`<div style="text-align:center;color:var(--muted);font-size:12px;padding:20px 0;">No alerts yet</div>`;return;}
+  el.innerHTML=sorted.map(a=>`<div class="alert-card ${a.level}"><div class="alert-time">${a.time}</div><span class="alert-level ${a.level}">${a.level}</span>${a.message}</div>`).join("");
+}
+function updateAssetList(highways,bridges,signals){
+  const el=document.getElementById("asset-list");let html="";
+  highways.forEach(h=>{const cls=h.status==="critical"?"pill-critical":h.status==="warning"?"pill-warning":"pill-normal";html+=assetRow(h,"highway",cls,h.speed.toFixed(0)+" km/h");});
+  bridges.forEach(b=>{const cls=b.status==="critical"?"pill-critical":b.status==="warning"?"pill-warning":"pill-healthy";html+=assetRow(b,"bridge",cls,(b.health*100).toFixed(0)+"% health");});
+  (signals||[]).forEach(s=>{const cls=s.status==="critical"?"pill-critical":s.status==="warning"?"pill-warning":"pill-normal";html+=assetRow(s,"signal",cls,s.queue+" queue");});
+  el.innerHTML=html;
+}
+function assetRow(node,type,pillCls,tag){return `<div class="asset-row" onclick='openPanel(${JSON.stringify(node)},"${type}")'><div class="status-pill ${pillCls}"></div><span class="asset-name">${node.name}</span><span class="asset-tag">${tag}</span></div>`;}
+function set(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
+function getDemoState(){
+  return{
+    highways:[
+      {id:"RD-MYSORE",name:"Mysore Road (NH-275)",zone:"West Bengaluru",path:[[12.9716,77.5946],[12.9500,77.5600],[12.9200,77.5200],[12.8900,77.4800]],speed:58,congestion:48,vehicles:3200,lanes:6,wait_min:4.0,type:"National Highway",status:"normal"},
+      {id:"RD-TUMKUR",name:"Tumkur Road (NH-48)",zone:"North-West Bengaluru",path:[[13.0250,77.5350],[13.0600,77.5100],[13.0900,77.4900],[13.1200,77.4700]],speed:62,congestion:40,vehicles:2800,lanes:4,wait_min:3.5,type:"National Highway",status:"normal"},
+      {id:"RD-KANAKAPURA",name:"Kanakapura Road (SH-87)",zone:"South Bengaluru",path:[[12.9352,77.5644],[12.9100,77.5500],[12.8800,77.5300],[12.8500,77.5100]],speed:35,congestion:72,vehicles:4100,lanes:4,wait_min:8.0,type:"State Highway",status:"warning"},
+      {id:"RD-WHITEFIELD",name:"Whitefield Main Road",zone:"East Bengaluru",path:[[12.9698,77.7499],[12.9800,77.7300],[12.9900,77.7100],[13.0000,77.6900]],speed:22,congestion:89,vehicles:5500,lanes:4,wait_min:13,type:"City Road",status:"critical"},
+      {id:"RD-BELLARY",name:"Bellary Road (NH-44)",zone:"North Bengaluru",path:[[13.0600,77.5950],[13.0900,77.5900],[13.1300,77.5850],[13.1700,77.5800]],speed:70,congestion:32,vehicles:2100,lanes:6,wait_min:2.5,type:"National Highway",status:"normal"},
+    ],
+    bridges:[
+      {id:"BR-MYSOREROAD",name:"Mysore Road Elevated Corridor",zone:"West",lat:12.9500,lng:77.5600,health:0.93,vibration:3.8,load:78,capacity:180,temperature:29,age_years:8,last_check:"2026-01-15",material:"Pre-stressed Concrete",status:"healthy"},
+      {id:"BR-NAGAWARA",name:"Nagawara Lake Overbridge",zone:"North",lat:13.0450,lng:77.6200,health:0.66,vibration:10.2,load:145,capacity:160,temperature:32,age_years:22,last_check:"2025-11-20",material:"Reinforced Concrete",status:"critical"},
+      {id:"BR-BELLANDUR",name:"Bellandur Lake Bridge",zone:"South-East",lat:12.9246,lng:77.6780,health:0.96,vibration:2.5,load:55,capacity:140,temperature:27,age_years:5,last_check:"2026-02-28",material:"Steel Composite",status:"healthy"},
+      {id:"BR-PEENYA",name:"Peenya Industrial Flyover",zone:"North-West",lat:13.0280,lng:77.5200,health:0.80,vibration:6.8,load:112,capacity:130,temperature:30,age_years:15,last_check:"2026-01-05",material:"Reinforced Concrete",status:"warning"},
+    ],
+    signals:[
+      {id:"SIG-JAYANAGAR",name:"Jayanagar 4th Block Junction",lat:12.9254,lng:77.5830,queue:22,cycle_time:90,status:"normal"},
+      {id:"SIG-RAJAJINAGAR",name:"Rajajinagar Circle",lat:12.9921,lng:77.5530,queue:35,cycle_time:75,status:"warning"},
+      {id:"SIG-YESHWANTPUR",name:"Yeshwantpur Circle",lat:13.0234,lng:77.5512,queue:18,cycle_time:60,status:"normal"},
+      {id:"SIG-KORAMANGALA",name:"Koramangala Water Tank Jn",lat:12.9354,lng:77.6195,queue:55,cycle_time:90,status:"critical"},
+      {id:"SIG-MALLESHWARAM",name:"Malleshwaram 18th Cross",lat:13.0050,lng:77.5700,queue:12,cycle_time:80,status:"normal"},
+      {id:"SIG-ELECTRONIC",name:"Electronic City Phase 1 Gate",lat:12.8445,lng:77.6600,queue:68,cycle_time:120,status:"critical"},
+    ],
+    alerts:[
+      {ts:Date.now()/1000-30,time:"Now",level:"critical",message:"CRITICAL: Whitefield Main Road — 89% congested, speed 22 km/h"},
+      {ts:Date.now()/1000-65,time:"-1 min",level:"critical",message:"STRUCTURAL ALERT: Nagawara Lake Overbridge — health 66%, vibration 10.2 Hz"},
+      {ts:Date.now()/1000-120,time:"-2 min",level:"warning",message:"WARNING: Kanakapura Road — congestion rising to 72%"},
+      {ts:Date.now()/1000-180,time:"-3 min",level:"critical",message:"Signal queue CRITICAL at Electronic City Phase 1 Gate — 68 vehicles"},
+      {ts:Date.now()/1000-240,time:"-4 min",level:"warning",message:"BRIDGE WARNING: Peenya Industrial Flyover — load at 86% capacity"},
+    ],
+    incidents:[],
+    analytics:{avg_speed_kmh:47.4,peak_congestion:89,bridge_warnings:2,total_assets:15,open_incidents:1,total_vehicles:17700}
+  };
+}
+async function refresh(){
+  let data;
+  if(!demoMode){
+    try{
+      const r=await fetch(`${API}/dashboard`,{signal:AbortSignal.timeout(3000)});
+      if(!r.ok)throw new Error();data=await r.json();
+    }catch{demoMode=true;document.getElementById("demo-banner").style.display="block";}
+  }
+  if(demoMode){
+    data=getDemoState();
+    data.highways.forEach(h=>{h.speed=Math.round(Math.max(5,Math.min(110,h.speed+(Math.random()-.5)*6))*10)/10;h.congestion=Math.round(Math.max(5,Math.min(100,h.congestion+(Math.random()-.5)*5))*10)/10;});
+    data.bridges.forEach(b=>{b.vibration=Math.round(Math.max(1,Math.min(15,b.vibration+(Math.random()-.5)*0.5))*10)/10;});
+    data.signals.forEach(s=>{s.queue=Math.max(0,s.queue+Math.round((Math.random()-.5)*6));});
+  }
+  appState=data;
+  drawHighways(data.highways||[]);drawBridges(data.bridges||[]);drawSignals(data.signals||[]);
+  updateAlerts(data.alerts||[]);updateAssetList(data.highways||[],data.bridges||[],data.signals||[]);
+  updateKPIs(data.analytics||{});
+  if(selected){
+    const all=[...(data.highways||[]),...(data.bridges||[]),...(data.signals||[])];
+    const fresh=all.find(x=>x.id===selected.node.id);
+    if(fresh)openPanel(fresh,selected.type);
+  }
+}
+function toast(msg){const el=document.getElementById("toast");el.textContent=msg;el.classList.add("show");setTimeout(()=>el.classList.remove("show"),3000);}
+function updateClock(){document.getElementById("clock").textContent=new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit",second:"2-digit"});}
+setInterval(updateClock,1000);updateClock();refresh();setInterval(refresh,2000);
+</script>
+</body>
+</html>
+<!-- ```
+
+To run:
+```
+pip install flask flask-cors requests
+python server.py        ← Terminal 1
+python sensors.py       ← Terminal 2
+Open dashboard.html     ← Browser -->
