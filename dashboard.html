@@ -328,7 +328,7 @@ async function refresh(){
   let data;
   if(!demoMode){
     try{
-      const r=await fetch(`${API}/dashboard`,{signal:AbortSignal.timeout(3000)});
+      const r=await fetch(`${API}/dashboard`,{signal:AbortSignal.timeout(10000)});
       if(!r.ok)throw new Error();data=await r.json();
     }catch{demoMode=true;document.getElementById("demo-banner").style.display="block";}
   }
