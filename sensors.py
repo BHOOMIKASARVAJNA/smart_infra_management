@@ -14,8 +14,8 @@ import time
 import random
 import copy
 
-SERVER   = "http://localhost:5000/ingest"
-INCIDENT = "http://localhost:5000/incident"
+SERVER = "https://smart-infra-management-2.onrender.com/ingest"
+INCIDENT = "https://smart-infra-management-2.onrender.com/incident"
 
 HIGHWAYS = [
     {
